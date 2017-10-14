@@ -35,3 +35,14 @@
         Set Alarm State
         Snooze State
         Stop Alarm State
+
+
+
+
+
+
+
+
+
+
+Startet med å se hva graphicstest eksempelet kunne gjøre og hvordan det ble gjort, så jeg kunne forstå og bruke det.

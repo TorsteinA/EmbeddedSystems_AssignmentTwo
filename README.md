@@ -12,4 +12,3 @@ Button is used to:
     - SetAlarmHour
     - SetAlarmMinute
 - Turn off Alarm when it's going
-- 

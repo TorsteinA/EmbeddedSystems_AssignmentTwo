@@ -1,22 +1,21 @@
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ST7735.h> // Hardware-specific library
 #include <SPI.h>
-
-// Date and time functions using a DS1307 RTC connected via I2C and Wire lib
-#include <Wire.h>
+#include <Wire.h> // Date and time functions using a DS1307 RTC connected via I2C and Wire lib
 #include "RTClib.h"
+#include "pitches.h"
 
 // For the breakout, you can use any 2 or 3 pins
 // These pins will also work for the 1.8" TFT shield
-#define TFT_CS     10
-#define TFT_RST    8  // you can also connect this to the Arduino reset
-// in which case, set this #define pin to 0!
-#define TFT_DC     9
-#define TFT_SCLK 13   // set these to be whatever pins you like!
-#define TFT_MOSI 11   // set these to be whatever pins you like!
+const int TFT_CS   = 10;
+const int TFT_RST  = 8;
+const int TFT_DC   = 9;
+const int TFT_SCLK = 13;
+const int TFT_MOSI = 11;
 
-const int analogInPin = A0; // for Potensiometer
-const int buttonPin = 7;
+const int analogInPin = A0;
+const int buttonPin = 7;  
+const int tonePin = 2;
 
 int sensorValue = 0;
 int buttonState = 0;         // current state of the button
@@ -27,8 +26,8 @@ const int mode_Idle = 0;
 const int mode_SetAlarm_Hour = 1;
 const int mode_SetAlarm_Minute = 2;
 
-int alarmSetHour = 0;
-int alarmSetMinute = 0;
+int alarmSetHour;
+int alarmSetMinute;
 
 bool alarming = false;
 bool alarmToggle = false;
@@ -39,6 +38,30 @@ RTC_DS1307 rtc;
 DateTime now;
 DateTime alarmTime;
 DateTime previousTime;
+
+int melodyAlarm[] = {
+  //NOTE_C3, NOTE_D3, NOTE_E3, NOTE_F3, NOTE_G3, NOTE_A4, NOTE_B4, NOTE_C4, NOTE_B4, NOTE_A4, NOTE_G3, NOTE_F3, NOTE_E3, NOTE_D3
+  NOTE_E3, 
+  NOTE_GS3, 
+  NOTE_B3, 
+  NOTE_DS3, 
+  NOTE_E4, 
+  NOTE_GS4, 
+  NOTE_B4,
+  NOTE_DS4, 
+  NOTE_E5, 
+  NOTE_DS4,
+  NOTE_B4, 
+  NOTE_GS4, 
+  NOTE_E4, 
+  NOTE_B3, 
+  NOTE_GS3
+};
+
+// note durations: 4 = quarter note, 8 = eighth note, etc.:
+int noteDurationsAlarm[] = {
+  16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16
+};
 
 
 void setup(void) {
@@ -67,6 +90,8 @@ void setup(void) {
   tft.fillScreen(ST7735_BLACK);
 
   alarmTime = DateTime(0, 0, 0, 10, 0, 0);
+  alarmSetHour = alarmTime.hour();
+  alarmSetMinute = alarmTime.minute();
   Serial.println("Initialized");
 
   now = rtc.now();
@@ -90,11 +115,12 @@ void loop() {
   if (buttonState != lastButtonState) {
     if (buttonState == HIGH) {
       Serial.println("on");
-      showButtonPressed();
+      //showButtonPressed();
       
       if (!alarming) nextMode();
       else turnOffAlarm();
-      refresh();
+      if (buttonToggleMode != mode_SetAlarm_Minute) hideTextLine(60);
+      hideTextLine(70);
     } else {
       Serial.println("off");
 
@@ -115,13 +141,18 @@ void loop() {
         showAllSetAlarm(mode_SetAlarm_Minute);
         break;
     }
-  } else showAlarm();
+  } else {
+    showAlarm();
+    PlayAlarmAudio();
+  }
   delay(50);
 }
 
 void turnOffAlarm(){
   alarming = false;
   hideTextLine(100);
+  hideTextLine(110);
+  hideTextLine(120);
 }
 
 void turnOnAlarm(){
@@ -146,29 +177,20 @@ void nextMode() {
   Serial.println(buttonToggleMode);
 }
 
-void showButtonPressed() {
-  tft.setCursor(0, 130);
-  tft.setTextColor(ST7735_RED);
-  tft.print("Button is Pressed!");
-}
+// --- Display Methods --- //
 
 void showAllSetAlarm(int mode) {
   
   if(mode == mode_SetAlarm_Hour){
     hideText(6 ,70, 6*2);
   } else if(mode == mode_SetAlarm_Minute){
-    hideText(4*6 ,70, 6*2);
+    hideText(4*6 ,70, 6*2); //In default font size, one character is 6 pixels wide
   }
   showSetAlarm();
 }
 
 void showAllIdle() {
   showAlarmTime();
-}
-
-void showAlarm() {
-  showTextLine(100, "Alarm! ", ST7735_RED);
-  showTextLine(110, "Press Button to turn off.", ST7735_WHITE);
 }
 
 void showDate() {
@@ -195,6 +217,11 @@ void showTime() {
   }
   text += now.minute();
   showTextLine(40, text, ST7735_GREEN);
+}
+
+void showAlarm() {
+  showTextLine(100, "Alarm! ", ST7735_RED);
+  showTextLine(110, "Press Button to turn off.", ST7735_WHITE);
 }
 
 void showAlarmTime() {
@@ -261,4 +288,16 @@ void hideText(int xStart, int yStart, int width){
 
 void hideTextLine(int yValue){
   tft.fillRect(0, yValue, tft.width(), 10 /*default font size*/, ST7735_BLACK);
+}
+
+// --- Audio Methods --- //
+
+void PlayAlarmAudio(){
+  for (int i = 0; i <= (sizeof(melodyAlarm) / sizeof(melodyAlarm[0])) - 1; i++) {
+    int noteDuration = 1000 / noteDurationsAlarm[i % (sizeof(noteDurationsAlarm) / sizeof(noteDurationsAlarm[0]))];
+    tone(tonePin, melodyAlarm[i % (sizeof(melodyAlarm) / sizeof(melodyAlarm[0]))], noteDuration);
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+    noTone(tonePin);
+  }
 }
