@@ -28,6 +28,7 @@ int buttonToggleMode = 0;
 const int mode_Idle = 0;
 const int mode_SetAlarm_Hour = 1;
 const int mode_SetAlarm_Minute = 2;
+const int numberOfButtonToggleModes = 3; //Separate int/size because modes are defined using const ints
 
 int alarmSetHour;
 int alarmSetMinute;
@@ -65,13 +66,26 @@ int melodyAlarm[] = {
 
 // note durations: 4 = quarter note, 8 = eighth note, etc.:
 int noteDurationsAlarm[] = {
-  16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16
+  16, 16, 16, 16, 16, 16, 16, 16, 16, 16, //8, 4, 1
+};
+
+int noteDurationsRandomAlarm[] = {
+  16, 16, 16, 16, 8, 8, 4, 2
+};
+
+int melodyStartup[] = {
+  NOTE_C3, NOTE_D3, NOTE_E3, NOTE_F3, NOTE_G3, NOTE_A4, NOTE_B4, NOTE_C4, NOTE_D4, NOTE_E4, NOTE_F4, NOTE_G4, NOTE_A4, NOTE_B5, NOTE_C5
+};
+
+int noteDurationsStartup[] = {
+  1, 2, 4, 8, 16, 32, 32 
 };
 
 void setup(void) {
 
   pinMode(buttonPin, INPUT);
   pinMode(buttonPin2, INPUT);
+  randomSeed(analogRead(0));
 
   while (!Serial); // for Leonardo/Micro/Zero
 
@@ -89,21 +103,20 @@ void setup(void) {
     // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
   }
 
+
   // Use this initializer if you're using a 1.8" TFT
   tft.initR(INITR_BLACKTAB);   // initialize a ST7735S chip, black tab
   tft.setRotation(2); // Flips the output upside down. This is due to how I placed the hardware
   tft.fillScreen(ST7735_BLACK);
 
-  alarmTime = DateTime(0, 0, 0, 10, 0, 0);
+  alarmTime = DateTime(0, 0, 0, 10, 0, 0);  //Sets the default alarm time to 10:00 AM. 
   alarmSetHour = alarmTime.hour();
   alarmSetMinute = alarmTime.minute();
-  Serial.println("Initialized");
 
-  now = rtc.now();
-  showDate();
-  showTime();
-  showAllIdle();
-  delay(250);
+  //PlayStartupAudio();
+  PlayRandomStartupAudio();
+
+  Serial.println("Initialized");
 }
 
 void loop() {
@@ -112,75 +125,71 @@ void loop() {
   buttonState2 = digitalRead(buttonPin2);
   sensorValue = analogRead(analogInPin);
 
-  if (now.minute() != previousTime.minute()) {
-    previousTime = now;
-    alarmToggle = false;
-    refresh();
-  }
-
-
+  if (now.minute() != previousTime.minute()) { updateMinute(); }
 
   if (buttonState != lastButtonState) {
     if (buttonState == HIGH) {
-      Serial.println("on");
-      if (alarming) {
-        turnOffAlarm();
-      }
-      else {
-        if (snoozing) turnOffSnooze();
-        nextMode();
-      }
-      if (buttonToggleMode != mode_SetAlarm_Minute) hideTextLine(60);
-      hideTextLine(70);
-    } else {
-      Serial.println("off");
-
+      pressedButton(0);
     }
     delay(100);
     lastButtonState = buttonState;
   }
 
-
-
   if (buttonState2 != lastButtonState2) {
     if (buttonState2 == HIGH) {
-      Serial.println("on2");
-      if (alarming) {
-        snooze();
-      }
-      else {
-        previousMode(); ;
-      }
-      if (buttonToggleMode != mode_SetAlarm_Hour) hideTextLine(60);
-      hideTextLine(70);
-    } else {
-      Serial.println("off2");
+      pressedButton(1);
     }
     delay(100);
     lastButtonState2 = buttonState2;
   }
 
-  if (alarming && !snoozing) {
+  if (alarming) {
+    if (snoozing) turnOffSnooze();
     showAlarm();
-    PlayAlarmAudio();
-  } else if (alarming && snoozing) {
-    showAlarm();
-    PlayAlarmAudio();
-    turnOffSnooze();
-  } else {
-    switch (buttonToggleMode) {
-      case mode_Idle:
-        showAllIdle();
-        break;
-      case mode_SetAlarm_Hour:
-        showAllSetAlarm(mode_SetAlarm_Hour);
-        break;
-      case mode_SetAlarm_Minute:
-        showAllSetAlarm(mode_SetAlarm_Minute);
-        break;
-    }
-  }
+    //PlayAlarmAudio();
+    PlayRandomAlarmAudio();
+  } else { showCurrentMode(); }
   delay(50);
+}
+
+void pressedButton(int button){
+
+  if (alarming) {
+    if (button == 0) turnOffAlarm();
+    if (button == 1) snooze();
+  }
+  else {
+    if (snoozing) turnOffSnooze();
+    if (button == 0) nextMode();
+    if (button == 1) previousMode();
+  }
+  if ((buttonToggleMode != mode_SetAlarm_Minute && button == 0) || 
+    (buttonToggleMode != mode_SetAlarm_Hour && button == 1)) hideTextLine(60);
+  hideTextLine(70);
+}
+
+void updateMinute(){
+  previousTime = now;
+  alarmToggle = false;
+  refresh();
+}
+
+void refresh() {
+  tft.fillScreen(ST7735_BLACK);
+  showDate();
+  showTime();
+  if (now.hour() == alarmTime.hour() && now.minute() == alarmTime.minute() && !alarmToggle && !alarming) {
+    turnOnAlarm();
+    alarmToggle = true;
+    if (snoozing) turnOffSnooze();
+  }
+}
+
+void nextMode() {
+  buttonToggleMode++;
+  if (buttonToggleMode >= numberOfButtonToggleModes) buttonToggleMode = 0;
+  Serial.print("Mode: ");
+  Serial.println(buttonToggleMode);
 }
 
 void previousMode() {
@@ -189,6 +198,8 @@ void previousMode() {
   Serial.print("Mode: ");
   Serial.println(buttonToggleMode);
 }
+
+// --- Alarm Methods --- //
 
 void snooze() {
   snoozing = true;
@@ -215,25 +226,21 @@ void turnOnAlarm() {
   showAlarm();
 }
 
-void refresh() {
-  tft.fillScreen(ST7735_BLACK);
-  showDate();
-  showTime();
-  if (now.hour() == alarmTime.hour() && now.minute() == alarmTime.minute() && !alarmToggle && !alarming) {
-    turnOnAlarm();
-    alarmToggle = true;
-    if (snoozing) turnOffSnooze();
+// --- Display Methods --- //
+
+void showCurrentMode(){
+  switch (buttonToggleMode) {
+    case mode_Idle:
+      showAllIdle();
+      break;
+    case mode_SetAlarm_Hour:
+      showAllSetAlarm(mode_SetAlarm_Hour);
+      break;
+    case mode_SetAlarm_Minute:
+      showAllSetAlarm(mode_SetAlarm_Minute);
+      break;
   }
 }
-
-void nextMode() {
-  buttonToggleMode++;
-  if (buttonToggleMode >= 3) buttonToggleMode = 0;
-  Serial.print("Mode: ");
-  Serial.println(buttonToggleMode);
-}
-
-// --- Display Methods --- //
 
 void showAllSetAlarm(int mode) {
 
@@ -251,6 +258,7 @@ void showAllIdle() {
 
 void showSnooze() {
   showTextLine(100, "Snoozing... ", ST7735_WHITE);
+  Serial.println("Snoozing...");
 }
 
 void showDate() {
@@ -282,6 +290,7 @@ void showTime() {
 void showAlarm() {
   showTextLine(100, "      Alarm! ", ST7735_RED);
   showTextLine(120, "Snooze       Turn off", ST7735_WHITE);
+  Serial.println("Alarm!");
 }
 
 void showAlarmTime() {
@@ -356,6 +365,38 @@ void PlayAlarmAudio() {
   for (int i = 0; i <= (sizeof(melodyAlarm) / sizeof(melodyAlarm[0])) - 1; i++) {
     int noteDuration = 1000 / noteDurationsAlarm[i % (sizeof(noteDurationsAlarm) / sizeof(noteDurationsAlarm[0]))];
     tone(tonePin, melodyAlarm[i % (sizeof(melodyAlarm) / sizeof(melodyAlarm[0]))], noteDuration);
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+    noTone(tonePin);
+  }
+}
+
+void PlayStartupAudio() {
+  for (int i = 0; i <= (sizeof(melodyStartup) / sizeof(melodyStartup[0])) - 1; i++) {
+    int noteDuration = 1000 / noteDurationsStartup[i % (sizeof(noteDurationsStartup) / sizeof(noteDurationsStartup[0]))];
+    tone(tonePin, melodyStartup[i % (sizeof(melodyStartup) / sizeof(melodyStartup[0]))], noteDuration);
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+    noTone(tonePin);
+  }
+}
+
+void PlayRandomAlarmAudio(){
+  double melodyLength = (sizeof(melodyStartup) / sizeof(melodyStartup[0]));
+  for (int i = 0; i <= (sizeof(melodyAlarm) / sizeof(melodyAlarm[0])) - 1; i++) {
+    int noteDuration = 1000 / noteDurationsRandomAlarm[random(sizeof(noteDurationsRandomAlarm) / sizeof(noteDurationsRandomAlarm[0]))];
+    tone(tonePin, melodyAlarm[random(melodyLength)], noteDuration);
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+    noTone(tonePin);
+  }
+}
+
+void PlayRandomStartupAudio(){
+  double melodyLength = (sizeof(melodyStartup) / sizeof(melodyStartup[0]));
+  for (int i = 0; i <= melodyLength - 1; i++) {
+    int noteDuration = 1000 / noteDurationsStartup[i % (sizeof(noteDurationsStartup) / sizeof(noteDurationsStartup[0]))];
+    tone(tonePin, melodyStartup[random(melodyLength)], noteDuration);
     int pauseBetweenNotes = noteDuration * 1.30;
     delay(pauseBetweenNotes);
     noTone(tonePin);
