@@ -194,7 +194,7 @@ void nextMode() {
 
 void previousMode() {
   buttonToggleMode--;
-  if (buttonToggleMode < 0) buttonToggleMode = 2;
+  if (buttonToggleMode < 0) buttonToggleMode = numberOfButtonToggleModes -1;
   Serial.print("Mode: ");
   Serial.println(buttonToggleMode);
 }
