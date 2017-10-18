@@ -1,7 +1,7 @@
 # EmbeddedSystems_AssignmentTwo
-Alarm Clock made using a quartz crystal and a TFT monitor
+Alarm Clock made using SD1307 and a TFT monitor
 
-### Button is used to:
+### Button (right) is used to:
 - Change Modes
     - Idle
     - SetAlarmHour
@@ -9,7 +9,7 @@ Alarm Clock made using a quartz crystal and a TFT monitor
     - repeat
 - Turn off Alarm when alarm is going
 
-### Button2 is used to:
+### Button (left) is used to:
 - Change Modes (opposite direction)
     - Idle
     - SetAlarmMinute
@@ -25,8 +25,9 @@ Alarm Clock made using a quartz crystal and a TFT monitor
 
 ### Buzzer is used to:
 - Play Alarm Melody
-- `(if implemented)` Play Awake Melody
-- `(if implemented)` Play Shutdown Melody
+- Play Awake Melody
+- Play Random Alarm Melody
+- Play Random Awake Melody
 
 ### Quartz Crystal DS1307 used to:
 - Keep track of time
@@ -35,12 +36,12 @@ Alarm Clock made using a quartz crystal and a TFT monitor
 
 ### TFT panel used to:
 - Display Date
-- Display Time of day (hh:mm)
-- Display Alarm Time
+- Display Time of day (hh:mm:ss)
+- Display Alarm Time  (hh:mm)
 - Display Set Alarm Modes
     - Set Hour
     - Set Minute
 - Display Alarm
     - Also instructions for turning it off or into snooze
 - Display Snoozing
-- 
+
